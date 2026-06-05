@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeVault Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#080A0F;--bg2:#0C0F16;--card:#0F1420;--card2:#131826;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.10);
+  --accent:#00E5A0;--accent2:#00C888;
+  --green:#22c55e;--red:#ef4444;--blue:#4B8BF5;--orange:#FF9A3C;
+  --text:#ededed;--text2:#888;--text3:#555;
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:8px;--r2:12px;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px;}
+
+/* ── AUTH ── */
+#authScreen{display:none;min-height:100vh;align-items:center;justify-content:center;background:radial-gradient(ellipse at 30% 40%,rgba(0,229,160,.06),transparent 55%),var(--bg);}
+#authScreen.active{display:flex;}
+.auth-box{width:100%;max-width:360px;background:var(--card2);border:1px solid var(--border2);border-radius:16px;padding:36px 28px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.auth-logo{text-align:center;margin-bottom:28px;}
+.auth-icon{width:52px;height:52px;margin:0 auto 14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 20px rgba(0,229,160,.3);}
+.auth-logo h1{font-size:20px;font-weight:700;}
+.auth-logo h1 span{color:var(--accent);}
+.auth-logo p{font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.8px;text-transform:uppercase;margin-top:4px;}
+.fg{margin-bottom:14px;}
+.fg label{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;font-family:var(--mono);}
+.fg input{width:100%;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:.15s;}
+.fg input:focus{border-color:rgba(0,229,160,.5);box-shadow:0 0 0 3px rgba(0,229,160,.06);}
+.fg input::placeholder{color:var(--text3);}
+.btn-auth{width:100%;padding:13px;border:none;border-radius:var(--r);cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;font-family:var(--font);font-size:13px;font-weight:700;letter-spacing:.3px;transition:.15s;margin-top:6px;}
+.btn-auth:hover{opacity:.9;}
+.btn-auth:disabled{opacity:.5;cursor:not-allowed;}
+.auth-err{color:var(--red);font-size:11px;margin-top:10px;text-align:center;display:none;padding:9px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-family:var(--mono);}
+
+/* ── APP ── */
+#appScreen{display:none;flex-direction:column;min-height:100vh;}
+#appScreen.active{display:flex;}
+
+/* ── TOP NAV ── */
+.top-nav{position:sticky;top:0;z-index:100;background:rgba(8,10,15,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;}
+.nav-logo{display:flex;align-items:center;gap:9px;}
+.nav-logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.nav-logo-text{font-size:15px;font-weight:700;}
+.nav-logo-text span{color:var(--accent);}
+.nav-badge{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:var(--red);font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;font-family:var(--mono);letter-spacing:.5px;}
+.nav-right{display:flex;align-items:center;gap:10px;}
+.nav-user{font-size:12px;color:var(--text2);font-family:var(--mono);}
+.btn-sm{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);transition:.15s;}
+.btn-logout{background:rgba(255,255,255,.05);color:var(--text2);border:1px solid var(--border2);}
+.btn-logout:hover{color:var(--red);border-color:rgba(239,68,68,.3);}
+
+/* ── MAIN ── */
+.main{flex:1;max-width:1100px;margin:0 auto;width:100%;padding:24px 20px 60px;}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:18px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r2) var(--r2) 0 0;}
+.stat-card.g::before{background:linear-gradient(90deg,var(--green),transparent);}
+.stat-card.b::before{background:linear-gradient(90deg,var(--blue),transparent);}
+.stat-card.o::before{background:linear-gradient(90deg,var(--orange),transparent);}
+.stat-card.p::before{background:linear-gradient(90deg,#A855F7,transparent);}
+.stat-icon{font-size:20px;margin-bottom:10px;}
+.stat-val{font-size:28px;font-weight:700;font-family:var(--mono);letter-spacing:-1px;margin-bottom:3px;}
+.stat-val.g{color:var(--green);}
+.stat-val.b{color:var(--blue);}
+.stat-val.o{color:var(--orange);}
+.stat-val.p{color:#A855F7;}
+.stat-lbl{font-size:11px;color:var(--text2);font-family:var(--mono);}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;}
+.tab{padding:8px 18px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;color:var(--text2);background:none;border:none;font-family:var(--font);display:flex;align-items:center;gap:7px;}
+.tab:hover{color:var(--text);}
+.tab.active{background:var(--accent);color:#000;}
+.tab-badge{background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;display:flex;align-items:center;justify-content:center;display:none;}
+.tab.active .tab-badge{background:rgba(0,0,0,.25);color:#000;}
+
+/* ── PANEL ── */
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* ── SECTION HEADER ── */
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.sec-title{font-size:13px;font-weight:700;letter-spacing:.3px;}
+.sec-sub{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px;}
+
+/* ── REQUEST CARDS ── */
+.req-list{display:flex;flex-direction:column;gap:12px;}
+.req-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;transition:border-color .15s;}
+.req-card:hover{border-color:var(--border2);}
+.req-card.approved{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.02);}
+.req-card.rejected{border-color:rgba(239,68,68,.15);opacity:.6;}
+.req-info{flex:1;}
+.req-name{font-size:14px;font-weight:700;margin-bottom:4px;}
+.req-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+.req-chip{font-size:10px;font-family:var(--mono);color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;}
+.req-chip.green{color:var(--green);background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.15);}
+.req-chip.orange{color:var(--orange);background:rgba(255,154,60,.06);border-color:rgba(255,154,60,.15);}
+.req-ref{font-size:11px;color:var(--text2);font-family:var(--mono);}
+.req-actions{display:flex;gap:8px;flex-shrink:0;}
+.btn-approve{padding:8px 16px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;transition:.15s;}
+.btn-approve:hover{opacity:.85;}
+.btn-reject{padding:8px 14px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(239,68,68,.25);font-family:var(--font);background:rgba(239,68,68,.06);color:var(--red);transition:.15s;}
+.btn-reject:hover{background:rgba(239,68,68,.12);}
+.req-status-badge{padding:5px 12px;border-radius:6px;font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:.5px;}
+.req-status-badge.approved{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2);}
+.req-status-badge.rejected{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.15);}
+.empty-state{text-align:center;padding:48px 20px;color:var(--text3);}
+.empty-icon{font-size:32px;margin-bottom:12px;}
+.empty-text{font-size:13px;font-family:var(--mono);}
+
+/* ── USERS TABLE ── */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;}
+.table-toolbar{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.search-input{flex:1;padding:9px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:12px;outline:none;transition:.15s;}
+.search-input:focus{border-color:rgba(0,229,160,.4);}
+.search-input::placeholder{color:var(--text3);}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:11px 16px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--text3);text-transform:uppercase;font-family:var(--mono);border-bottom:1px solid var(--border);background:var(--bg2);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(255,255,255,.02);}
+tbody td{padding:12px 16px;font-size:12px;vertical-align:middle;}
+.u-name{font-weight:600;margin-bottom:2px;}
+.u-email{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.u-uid{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.pro-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.25);color:var(--accent);font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;font-family:var(--mono);}
+.free-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text3);font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;font-family:var(--mono);}
+.btn-grant{padding:5px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;border:none;font-family:var(--font);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000;transition:.15s;}
+.btn-grant:hover{opacity:.85;}
+.btn-revoke{padding:5px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid rgba(239,68,68,.25);font-family:var(--font);background:rgba(239,68,68,.06);color:var(--red);transition:.15s;}
+.btn-revoke:hover{background:rgba(239,68,68,.12);}
+
+/* ── REVIEWS PANEL ── */
+.reviews-list{display:flex;flex-direction:column;gap:12px;}
+.review-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:18px;}
+.review-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.review-user{font-size:13px;font-weight:700;}
+.review-date{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.review-text{font-size:13px;color:var(--text2);line-height:1.65;padding:12px;background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);}
+.review-star{color:#F5C542;font-size:12px;margin-top:10px;}
+
+/* ── TOAST ── */
+#toastWrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{padding:11px 18px;border-radius:9px;font-size:12px;font-weight:600;font-family:var(--mono);box-shadow:0 8px 28px rgba(0,0,0,.5);animation:toastIn .25s ease;pointer-events:none;max-width:300px;}
+.toast.success{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:var(--green);}
+.toast.error{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red);}
+.toast.info{background:rgba(75,139,245,.15);border:1px solid rgba(75,139,245,.3);color:var(--blue);}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── LOADING ── */
+#loadOverlay{position:fixed;inset:0;z-index:9998;background:rgba(8,10,15,.8);display:none;align-items:center;justify-content:center;}
+#loadOverlay.active{display:flex;}
+.load-box{background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:28px 36px;text-align:center;}
+.load-spin{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-txt{font-size:11px;color:var(--text3);font-family:var(--mono);}
+
+/* ── REFRESH BTN ── */
+.btn-refresh{padding:7px 14px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border2);font-family:var(--font);background:var(--bg2);color:var(--text2);transition:.15s;}
+.btn-refresh:hover{border-color:var(--accent);color:var(--accent);}
+
+@media(max-width:700px){
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .req-card{flex-direction:column;}
+  .main{padding:16px 12px 60px;}
+  thead th:nth-child(3),tbody td:nth-child(3){display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="authScreen" class="active">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-icon">🔐</div>
+      <h1>Trade<span>Vault</span></h1>
+      <p>Admin Panel</p>
+    </div>
+    <div class="fg">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin email" value="martinoluwabukola56@gmail.com">
+    </div>
+    <div class="fg">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-auth" onclick="doLogin()" id="loginBtn">ENTER ADMIN →</button>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen">
+  <nav class="top-nav">
+    <div class="nav-logo">
+      <div class="nav-logo-icon">📊</div>
+      <div class="nav-logo-text">Trade<span>Vault</span> <span style="font-size:10px;color:var(--text3);font-weight:400;font-family:var(--mono);">ADMIN</span></div>
+      <div class="nav-badge" id="pendingBadge" style="display:none;">0 PENDING</div>
+    </div>
+    <div class="nav-right">
+      <span class="nav-user" id="navUser"></span>
+      <button class="btn-sm btn-refresh" onclick="loadAll()">↻ Refresh</button>
+      <button class="btn-sm btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card g">
+        <div class="stat-icon">👥</div>
+        <div class="stat-val g" id="statTotal">0</div>
+        <div class="stat-lbl">Total Users</div>
+      </div>
+      <div class="stat-card b">
+        <div class="stat-icon">👑</div>
+        <div class="stat-val b" id="statPro">0</div>
+        <div class="stat-lbl">Pro Users</div>
+      </div>
+      <div class="stat-card o">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-val o" id="statPending">0</div>
+        <div class="stat-lbl">Pending Requests</div>
+      </div>
+      <div class="stat-card p">
+        <div class="stat-icon">💰</div>
+        <div class="stat-val p" id="statRevenue">₦0</div>
+        <div class="stat-lbl">Est. Revenue</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" id="tabRequests" onclick="switchTab('requests')">
+        ⏳ Pro Requests
+        <span class="tab-badge" id="reqBadge">0</span>
+      </button>
+      <button class="tab" id="tabUsers" onclick="switchTab('users')">👥 All Users</button>
+      <button class="tab" id="tabReviews" onclick="switchTab('reviews')">⭐ Reviews</button>
+    </div>
+
+    <!-- PRO REQUESTS PANEL -->
+    <div class="panel active" id="panelRequests">
+      <div class="sec-hd">
+        <div>
+          <div class="sec-title">Pro Upgrade Requests</div>
+          <div class="sec-sub">Users who submitted payment and are waiting for Pro activation</div>
+        </div>
+      </div>
+      <div class="req-list" id="reqList">
+        <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Loading requests...</div></div>
+      </div>
+    </div>
+
+    <!-- USERS PANEL -->
+    <div class="panel" id="panelUsers">
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <input class="search-input" id="searchInput" placeholder="Search by name or email..." oninput="filterUsers()">
+          <button class="btn-sm btn-refresh" onclick="loadAll()" style="white-space:nowrap;">↻ Reload</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>UID</th>
+              <th>Trades</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REVIEWS PANEL -->
+    <div class="panel" id="panelReviews">
+      <div class="sec-hd">
+        <div>
+          <div class="sec-title">User Reviews</div>
+          <div class="sec-sub">Reviews submitted from the app — each one also sent to WhatsApp</div>
+        </div>
+      </div>
+      <div class="reviews-list" id="reviewsList">
+        <div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-text">No reviews yet</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loadOverlay">
+  <div class="load-box">
+    <div class="load-spin"></div>
+    <div class="load-txt" id="loadTxt">Loading data...</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toastWrap"></div>
+
+<script>
+// ── FIREBASE CONFIG ──
+const firebaseConfig = {
+  apiKey:"AIzaSyCDFX68CEVSRj_nS69LqShLy8NXy1Yh3DQ",
+  authDomain:"my-pips-funding.firebaseapp.com",
+  databaseURL:"https://my-pips-funding-default-rtdb.firebaseio.com",
+  projectId:"my-pips-funding",
+  storageBucket:"my-pips-funding.firebasestorage.app",
+  messagingSenderId:"91159685703",
+  appId:"1:91159685703:web:2cbf585bc84df53094df62"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+// ── ADMIN CONFIG ──
+const ADMIN_UID = 'uuGIckvfQoX5gcazQKV5TTrFbDX2';
+const ADMIN_EMAIL = 'martinoluwabukola56@gmail.com';
+
+// ── STATE ──
+let currentAdmin = null;
+let allUsers = [];
+let pendingRequests = [];
+let allRequests = [];
+let proUsers = {};
+let allReviews = [];
+let currentTab = 'requests';
+
+// ── AUTH STATE ──
+auth.onAuthStateChanged(user => {
+  if (user && user.uid === ADMIN_UID) {
+    currentAdmin = user;
+    document.getElementById('authScreen').classList.remove('active');
+    document.getElementById('appScreen').classList.add('active');
+    document.getElementById('navUser').textContent = user.email;
+    loadAll();
+  } else if (user) {
+    // Wrong account logged in
+    auth.signOut();
+    showErr('⛔ This Google account is not the admin account.');
+  } else {
+    currentAdmin = null;
+    document.getElementById('appScreen').classList.remove('active');
+    document.getElementById('authScreen').classList.add('active');
+  }
+});
+
+// ── LOGIN ──
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  if (!email || !pass) { showErr('Enter email and password.'); return; }
+  btn.textContent = 'Signing in...'; btn.disabled = true;
+  hideErr();
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged handles the rest
+  } catch(e) {
+    btn.textContent = 'ENTER ADMIN →'; btn.disabled = false;
+    showErr('Login failed: ' + (e.code === 'auth/wrong-password' ? 'Wrong password' : e.code === 'auth/user-not-found' ? 'No account found' : e.message));
+  }
+}
+
+async function doLogout() {
+  await auth.signOut();
+  toast('Signed out', 'info');
+}
+
+function showErr(msg) {
+  const el = document.getElementById('authErr');
+  el.textContent = msg; el.style.display = 'block';
+}
+function hideErr() {
+  document.getElementById('authErr').style.display = 'none';
+}
+
+// ── LOAD ALL DATA ──
+async function loadAll() {
+  showLoad('Loading data...');
+  try {
+    // 1. Load pro_users
+    const proSnap = await db.ref('pro_users').once('value');
+    proUsers = {};
+    if (proSnap.exists()) {
+      proSnap.forEach(child => {
+        const val = child.val();
+        const uid = child.key;
+        if (val === true) proUsers[uid] = { status: 'active', activatedAt: null };
+        else if (val && typeof val === 'object') proUsers[uid] = { status: val.status || 'active', activatedAt: val.activatedAt || null };
+      });
+    }
+
+    // 2. Load pro_requests
+    const reqSnap = await db.ref('pro_requests').once('value');
+    allRequests = [];
+    if (reqSnap.exists()) {
+      reqSnap.forEach(child => {
+        allRequests.push({ id: child.key, ...child.val() });
+      });
+      // Sort newest first
+      allRequests.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    }
+    pendingRequests = allRequests.filter(r => r.status === 'pending');
+
+    // 3. Load users — merge leaderboard + users/ nodes
+    allUsers = [];
+    const seen = new Set();
+
+    const lbSnap = await db.ref('leaderboard').once('value');
+    if (lbSnap.exists()) {
+      lbSnap.forEach(child => {
+        const uid = child.key;
+        const v = child.val();
+        seen.add(uid);
+        allUsers.push({
+          uid,
+          name: v.name || 'Unknown',
+          email: v.userEmail || v.email || '—',
+          trades: v.trades || 0,
+          registeredAt: v.registeredAt || v.updatedAt || null,
+          isPro: !!proUsers[uid]
+        });
+      });
+    }
+
+    const usersSnap = await db.ref('users').once('value');
+    if (usersSnap.exists()) {
+      usersSnap.forEach(child => {
+        const uid = child.key;
+        if (seen.has(uid)) return;
+        seen.add(uid);
+        const v = child.val();
+        let s = {};
+        try { s = v.settings ? (typeof v.settings === 'string' ? JSON.parse(v.settings) : v.settings) : {}; } catch(_){}
+        allUsers.push({
+          uid,
+          name: s.name || v.name || '—',
+          email: s.email || v.email || v.userEmail || '—',
+          trades: 0,
+          registeredAt: v.registeredAt || null,
+          isPro: !!proUsers[uid]
+        });
+      });
+    }
+
+    // Also add users only seen in requests
+    allRequests.forEach(r => {
+      if (r.uid && r.uid !== 'guest' && !seen.has(r.uid)) {
+        seen.add(r.uid);
+        allUsers.push({
+          uid: r.uid,
+          name: r.name || '—',
+          email: r.userEmail || r.email || '—',
+          trades: 0,
+          registeredAt: null,
+          isPro: !!proUsers[r.uid]
+        });
+      }
+    });
+
+    // 4. Load reviews
+    const revSnap = await db.ref('reviews').once('value');
+    allReviews = [];
+    if (revSnap.exists()) {
+      revSnap.forEach(child => {
+        allReviews.push({ id: child.key, ...child.val() });
+      });
+      allReviews.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    }
+
+    updateStats();
+    renderRequests();
+    renderUsers();
+    renderReviews();
+    hideLoad();
+    toast('Data loaded ✓', 'success');
+  } catch(e) {
+    hideLoad();
+    toast('Error: ' + e.message, 'error');
+    console.error('loadAll error:', e);
+  }
+}
+
+// ── STATS ──
+function updateStats() {
+  const proCount = Object.keys(proUsers).length;
+  const pendingCount = pendingRequests.length;
+  document.getElementById('statTotal').textContent = allUsers.length;
+  document.getElementById('statPro').textContent = proCount;
+  document.getElementById('statPending').textContent = pendingCount;
+  document.getElementById('statRevenue').textContent = '₦' + (proCount * 7000).toLocaleString();
+
+  const badge = document.getElementById('pendingBadge');
+  const reqBadge = document.getElementById('reqBadge');
+  if (pendingCount > 0) {
+    badge.textContent = pendingCount + ' PENDING';
+    badge.style.display = 'inline-flex';
+    reqBadge.textContent = pendingCount;
+    reqBadge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+    reqBadge.style.display = 'none';
+  }
+}
+
+// ── RENDER REQUESTS ──
+function renderRequests() {
+  const el = document.getElementById('reqList');
+  if (!allRequests.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pro requests yet</div></div>';
+    return;
+  }
+  el.innerHTML = allRequests.map(r => {
+    const date = r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'}) : '—';
+    const isPending = r.status === 'pending';
+    return `
+    <div class="req-card ${r.status}" id="req_${r.id}">
+      <div class="req-info">
+        <div class="req-name">${esc(r.name || '—')}</div>
+        <div class="req-meta">
+          <span class="req-chip">📧 ${esc(r.email || r.userEmail || '—')}</span>
+          <span class="req-chip orange">₦ ${esc(r.amount || '7,000')}</span>
+          <span class="req-chip">🕐 ${date}</span>
+          ${r.uid ? `<span class="req-chip">UID: ${r.uid.slice(0,12)}...</span>` : ''}
+        </div>
+        <div class="req-ref">Ref: <strong>${esc(r.ref || '—')}</strong></div>
+      </div>
+      <div class="req-actions">
+        ${isPending
+          ? `<button class="btn-approve" onclick="approveReq('${r.id}','${r.uid}')">✓ Approve</button>
+             <button class="btn-reject" onclick="rejectReq('${r.id}')">✕</button>`
+          : `<span class="req-status-badge ${r.status}">${r.status.toUpperCase()}</span>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER USERS ──
+function renderUsers(filter = '') {
+  const tbody = document.getElementById('usersBody');
+  let list = allUsers;
+  if (filter) {
+    const q = filter.toLowerCase();
+    list = allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text3);font-family:var(--mono);font-size:12px;">No users found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(u => {
+    const date = u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('en-NG') : '—';
+    return `
+    <tr>
+      <td>
+        <div class="u-name">${esc(u.name)}</div>
+        <div class="u-email">${esc(u.email)}</div>
+        <div style="font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:2px;">Joined: ${date}</div>
+      </td>
+      <td><div class="u-uid">${u.uid.slice(0,14)}...</div></td>
+      <td><span style="font-family:var(--mono);font-size:12px;">${u.trades}</span></td>
+      <td>${u.isPro ? '<span class="pro-badge">👑 PRO</span>' : '<span class="free-badge">FREE</span>'}</td>
+      <td>
+        ${u.isPro
+          ? `<button class="btn-revoke" onclick="revokeProUser('${u.uid}','${esc(u.name)}')">Revoke</button>`
+          : `<button class="btn-grant" onclick="grantProUser('${u.uid}','${esc(u.name)}')">Grant Pro</button>`
+        }
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterUsers() {
+  renderUsers(document.getElementById('searchInput').value);
+}
+
+// ── RENDER REVIEWS ──
+function renderReviews() {
+  const el = document.getElementById('reviewsList');
+  if (!allReviews.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-text">No reviews yet</div></div>';
+    return;
+  }
+  el.innerHTML = allReviews.map(r => {
+    const date = r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'}) : '—';
+    return `
+    <div class="review-card">
+      <div class="review-header">
+        <div class="review-user">${esc(r.name || 'Anonymous')} <span style="font-size:11px;color:var(--text3);font-weight:400;">— ${esc(r.email || '')}</span></div>
+        <div class="review-date">${date}</div>
+      </div>
+      <div class="review-text">${esc(r.review || '')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── TABS ──
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  document.getElementById('panel' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+}
+
+// ── APPROVE REQUEST ──
+async function approveReq(reqId, uid) {
+  if (!confirm('Approve this Pro request and grant Pro access?')) return;
+  showLoad('Approving...');
+  try {
+    await db.ref('pro_requests/' + reqId).update({
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: currentAdmin.uid
+    });
+    await db.ref('pro_users/' + uid).set({
+      status: 'active',
+      activatedAt: new Date().toISOString(),
+      activatedBy: currentAdmin.uid,
+      source: 'request_approval'
+    });
+    toast('✅ Pro access granted!', 'success');
+    await loadAll();
+  } catch(e) {
+    hideLoad();
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── REJECT REQUEST ──
+async function rejectReq(reqId) {
+  if (!confirm('Reject this Pro request?')) return;
+  showLoad('Rejecting...');
+  try {
+    await db.ref('pro_requests/' + reqId).update({
+      status: 'rejected',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: currentAdmin.uid
+    });
+    toast('Request rejected', 'info');
+    await loadAll();
+  } catch(e) {
+    hideLoad();
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── GRANT PRO ──
+async function grantProUser(uid, name) {
+  if (!confirm('Grant Pro access to ' + name + '?')) return;
+  showLoad('Granting Pro...');
+  try {
+    await db.ref('pro_users/' + uid).set({
+      status: 'active',
+      activatedAt: new Date().toISOString(),
+      activatedBy: currentAdmin.uid,
+      source: 'manual_grant'
+    });
+    toast('👑 Pro granted to ' + name, 'success');
+    await loadAll();
+  } catch(e) {
+    hideLoad();
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── REVOKE PRO ──
+async function revokeProUser(uid, name) {
+  if (!confirm('Revoke Pro from ' + name + '? They will lose Pro features immediately.')) return;
+  showLoad('Revoking...');
+  try {
+    await db.ref('pro_users/' + uid).remove();
+    toast('Pro revoked from ' + name, 'info');
+    await loadAll();
+  } catch(e) {
+    hideLoad();
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── HELPERS ──
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showLoad(txt) {
+  document.getElementById('loadTxt').textContent = txt || 'Loading...';
+  document.getElementById('loadOverlay').classList.add('active');
+}
+function hideLoad() {
+  document.getElementById('loadOverlay').classList.remove('active');
+}
+
+function toast(msg, type = 'success') {
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+</script>
+</body>
+</html>
